@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
-const callGeminiDecomposeAPI = async (goal, apiKey) => {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+// Hardcode or use environment variable for Gemini API Key here
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "YOUR_API_KEY_HERE";
+
+const callGeminiDecomposeAPI = async (goal) => {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 
     const prompt = `You are an ADHD / cognitive accessibility executive function coach. A user is overwhelmed by a large goal. Break this goal down into exact, small, manageable steps.
 
@@ -57,27 +60,10 @@ const TaskDecomposer = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const [apiKey, setApiKey] = useState("");
-    const [isEditingKey, setIsEditingKey] = useState(false);
-
-    useEffect(() => {
-        const storedKey = localStorage.getItem('gemini_api_key');
-        if (storedKey) setApiKey(storedKey);
-        else setIsEditingKey(true);
-    }, []);
-
-    const saveApiKey = () => {
-        if (apiKey.trim()) {
-            localStorage.setItem('gemini_api_key', apiKey.trim());
-            setIsEditingKey(false);
-        }
-    };
-
     const generatePlan = async () => {
         if (!goal.trim()) return;
-        if (!apiKey) {
-            setIsEditingKey(true);
-            setError("Please enter your Gemini API key first.");
+        if (!API_KEY || API_KEY === "YOUR_API_KEY_HERE") {
+            setError("Please add your Gemini API Key in the code (TaskDecomposer.jsx).");
             return;
         }
 
@@ -86,7 +72,7 @@ const TaskDecomposer = () => {
         setError(null);
 
         try {
-            const result = await callGeminiDecomposeAPI(goal, apiKey);
+            const result = await callGeminiDecomposeAPI(goal);
             setPlan(result);
         } catch (err) {
             console.error(err);
@@ -114,25 +100,6 @@ const TaskDecomposer = () => {
                     <h2 className="text-3xl mb-2 text-gradient">Task Breakdown Assistant</h2>
                     <p className="text-muted text-lg">AI acts as your executive function coach to break down big goals.</p>
                 </div>
-
-                <div className="card" style={{ padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }}>
-                    {isEditingKey ? (
-                        <div className="flex gap-2 items-center">
-                            <input
-                                type="password" placeholder="Enter API Key..."
-                                value={apiKey} onChange={(e) => setApiKey(e.target.value)}
-                                className="input-control"
-                                style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem', width: '220px', background: '#0a0a12', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
-                            />
-                            <button className="btn btn-primary" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} onClick={saveApiKey}>Save</button>
-                        </div>
-                    ) : (
-                        <div className="flex gap-4 items-center">
-                            <span className="text-sm" style={{ color: '#10B981' }}>✓ API Key Configured</span>
-                            <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', background: 'transparent', color: '#e8e8f0' }} onClick={() => setIsEditingKey(true)}>Change</button>
-                        </div>
-                    )}
-                </div>
             </header>
 
             {error && (
@@ -156,7 +123,7 @@ const TaskDecomposer = () => {
                             onKeyDown={(e) => e.key === 'Enter' && generatePlan()}
                             style={{ fontSize: '1.1rem', padding: '1rem', background: 'rgba(0,0,0,0.2)', color: '#e8e8f0', border: '1px solid rgba(255,255,255,0.1)' }}
                         />
-                        <button className="btn btn-primary" onClick={generatePlan} disabled={loading || !goal.trim() || isEditingKey} style={{ fontSize: '1.05rem', padding: '0.75rem 1.5rem', width: '100%', opacity: (loading || !goal.trim() || isEditingKey) ? 0.5 : 1 }}>
+                        <button className="btn btn-primary" onClick={generatePlan} disabled={loading || !goal.trim()} style={{ fontSize: '1.05rem', padding: '0.75rem 1.5rem', width: '100%', opacity: (loading || !goal.trim()) ? 0.5 : 1 }}>
                             {loading ? '⚙️ Breaking down task...' : '🎯 Create Action Plan'}
                         </button>
                     </div>

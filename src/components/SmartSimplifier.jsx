@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
-// Real LLM Integration via Google Gemini API
-const callGeminiAPI = async (text, apiKey) => {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+// Hardcode or use environment variable for Gemini API Key here
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyDdKq8tNRtGjf34PZKvT96CGCfGwbsmKYw";
+
+const callGeminiAPI = async (text) => {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 
     const prompt = `You are a cognitive accessibility assistant. Your job is to take the following complex text and simplify it for someone who struggles with reading comprehension, memory, or focus (e.g., ADHD, dyslexia, cognitive decline).
     
@@ -37,7 +39,7 @@ ${text}
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || "Failed to connect to AI .");
+        throw new Error(errorData.error?.message || "Failed to connect to AI.");
     }
 
     const data = await response.json();
@@ -63,31 +65,10 @@ const SmartSimplifier = () => {
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
 
-    // API Key Management
-    const [apiKey, setApiKey] = useState("");
-    const [isEditingKey, setIsEditingKey] = useState(false);
-
-    useEffect(() => {
-        const storedKey = localStorage.getItem('gemini_api_key');
-        if (storedKey) {
-            setApiKey(storedKey);
-        } else {
-            setIsEditingKey(true);
-        }
-    }, []);
-
-    const saveApiKey = () => {
-        if (apiKey.trim()) {
-            localStorage.setItem('gemini_api_key', apiKey.trim());
-            setIsEditingKey(false);
-        }
-    };
-
     const handleSimplify = async () => {
         if (!inputText.trim()) return;
-        if (!apiKey) {
-            setIsEditingKey(true);
-            setError("Please enter your Gemini API key first.");
+        if (!API_KEY || API_KEY === "YOUR_API_KEY_HERE") {
+            setError("Please add your Gemini API Key in the code (SmartSimplifier.jsx).");
             return;
         }
 
@@ -96,7 +77,7 @@ const SmartSimplifier = () => {
         setError(null);
 
         try {
-            const res = await callGeminiAPI(inputText, apiKey);
+            const res = await callGeminiAPI(inputText);
             setResult(res);
         } catch (err) {
             console.error(err);
@@ -112,28 +93,6 @@ const SmartSimplifier = () => {
                 <div>
                     <h2 className="text-3xl mb-2 text-gradient">Smart Text Simplifier</h2>
                     <p className="text-muted text-lg">Powered by real AI: Paste complex text below to convert it into easy-to-read info.</p>
-                </div>
-
-                {/* API Key Settings UI inside the app itself */}
-                <div className="card" style={{ padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }}>
-                    {isEditingKey ? (
-                        <div className="flex gap-2 items-center">
-                            <input
-                                type="password"
-                                placeholder="Enter Gemini API Key..."
-                                value={apiKey}
-                                onChange={(e) => setApiKey(e.target.value)}
-                                className="input-control"
-                                style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem', width: '220px', background: '#0a0a12', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
-                            />
-                            <button className="btn btn-primary" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} onClick={saveApiKey}>Save</button>
-                        </div>
-                    ) : (
-                        <div className="flex gap-4 items-center">
-                            <span className="text-sm" style={{ color: '#10B981' }}>✓ API Key Configured</span>
-                            <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', background: 'transparent' }} onClick={() => setIsEditingKey(true)}>Change Key</button>
-                        </div>
-                    )}
                 </div>
             </header>
 
@@ -165,8 +124,8 @@ const SmartSimplifier = () => {
                     <button
                         className="btn btn-primary"
                         onClick={handleSimplify}
-                        disabled={loading || !inputText.trim() || isEditingKey}
-                        style={{ alignSelf: 'flex-start', opacity: (loading || !inputText.trim() || isEditingKey) ? 0.5 : 1 }}
+                        disabled={loading || !inputText.trim()}
+                        style={{ alignSelf: 'flex-start', opacity: (loading || !inputText.trim()) ? 0.5 : 1 }}
                     >
                         {loading ? '✨ Generating...' : '✨ Simplify with AI'}
                     </button>
@@ -186,7 +145,7 @@ const SmartSimplifier = () => {
                     {loading && (
                         <div className="flex flex-col items-center justify-center" style={{ flexGrow: 1, minHeight: '250px' }}>
                             <div className="spinner mb-4" style={{ borderTopColor: '#a78bfa', borderRightColor: 'rgba(167,139,250,0.2)', borderBottomColor: 'rgba(167,139,250,0.2)', borderLeftColor: 'rgba(167,139,250,0.2)' }}></div>
-                            <p className="animate-pulse" style={{ color: '#a78bfa', fontWeight: 500 }}>Connecting.... Analyzing complexity...</p>
+                            <p className="animate-pulse" style={{ color: '#a78bfa', fontWeight: 500 }}>Connecting... Analyzing complexity...</p>
                         </div>
                     )}
 

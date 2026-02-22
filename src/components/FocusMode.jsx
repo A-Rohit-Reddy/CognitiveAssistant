@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
-const callGeminiFocusAPI = async (text, apiKey) => {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+// Hardcode or use environment variable for Gemini API Key here
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "YOUR_API_KEY_HERE";
+
+const callGeminiFocusAPI = async (text) => {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 
     const prompt = `You are a reading assistant for someone who gets easily overwhelmed by long paragraphs. Take the following text and split it into completely separate, logical, easy-to-read sentences. 
     
@@ -47,27 +50,10 @@ const FocusMode = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const [apiKey, setApiKey] = useState("");
-    const [isEditingKey, setIsEditingKey] = useState(false);
-
-    useEffect(() => {
-        const storedKey = localStorage.getItem('gemini_api_key');
-        if (storedKey) setApiKey(storedKey);
-        else setIsEditingKey(true);
-    }, []);
-
-    const saveApiKey = () => {
-        if (apiKey.trim()) {
-            localStorage.setItem('gemini_api_key', apiKey.trim());
-            setIsEditingKey(false);
-        }
-    };
-
     const startReading = async () => {
         if (!text.trim()) return;
-        if (!apiKey) {
-            setIsEditingKey(true);
-            setError("Please enter your Gemini API key first.");
+        if (!API_KEY || API_KEY === "YOUR_API_KEY_HERE") {
+            setError("Please add your Gemini API Key in the code (FocusMode.jsx).");
             return;
         }
 
@@ -75,7 +61,7 @@ const FocusMode = () => {
         setError(null);
 
         try {
-            const splitSentences = await callGeminiFocusAPI(text, apiKey);
+            const splitSentences = await callGeminiFocusAPI(text);
             if (!Array.isArray(splitSentences) || splitSentences.length === 0) {
                 throw new Error("Invalid format returned by AI.");
             }
@@ -106,7 +92,7 @@ const FocusMode = () => {
         }
     };
 
-    useEffect(() => {
+    React.useEffect(() => {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isReading, currentIndex, sentences.length]);
@@ -169,25 +155,6 @@ const FocusMode = () => {
                     <h2 className="text-3xl mb-2 text-gradient">Focus Mode</h2>
                     <p className="text-muted text-lg">AI intelligently splits complex text into readable chunks to reduce overwhelm.</p>
                 </div>
-
-                <div className="card" style={{ padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }}>
-                    {isEditingKey ? (
-                        <div className="flex gap-2 items-center">
-                            <input
-                                type="password" placeholder="Enter API Key..."
-                                value={apiKey} onChange={(e) => setApiKey(e.target.value)}
-                                className="input-control"
-                                style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem', width: '220px', background: '#0a0a12', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
-                            />
-                            <button className="btn btn-primary" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} onClick={saveApiKey}>Save</button>
-                        </div>
-                    ) : (
-                        <div className="flex gap-4 items-center">
-                            <span className="text-sm" style={{ color: '#10B981' }}>✓ API Key Configured</span>
-                            <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', background: 'transparent', color: '#e8e8f0' }} onClick={() => setIsEditingKey(true)}>Change</button>
-                        </div>
-                    )}
-                </div>
             </header>
 
             {error && (
@@ -206,7 +173,7 @@ const FocusMode = () => {
                     onChange={(e) => setText(e.target.value)}
                     style={{ resize: 'vertical', background: 'rgba(0,0,0,0.2)', color: '#e8e8f0', border: '1px solid rgba(255,255,255,0.1)' }}
                 />
-                <button className="btn btn-primary" onClick={startReading} disabled={loading || !text.trim() || isEditingKey} style={{ fontSize: '1.1rem', padding: '0.75rem 2rem', opacity: (loading || !text.trim() || isEditingKey) ? 0.5 : 1 }}>
+                <button className="btn btn-primary" onClick={startReading} disabled={loading || !text.trim()} style={{ fontSize: '1.1rem', padding: '0.75rem 2rem', opacity: (loading || !text.trim()) ? 0.5 : 1 }}>
                     {loading ? '⚙️ AI Formatting Text...' : '📖 Start Reading Focus Mode'}
                 </button>
             </div>
