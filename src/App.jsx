@@ -17,11 +17,11 @@ function App() {
   }
 
   const NAV_ITEMS = [
-    { id: 'simplifier', label: 'Smart Simplifier', icon: '✨' },
-    { id: 'focus', label: 'Focus Mode', icon: '📖' },
-    { id: 'memory', label: 'Memory Assistant', icon: '🧠' },
-    { id: 'tasks', label: 'Task Breakdown', icon: '✅' },
-    { id: 'companion', label: 'Reading Companion', icon: '🤖' },
+    { id: 'simplifier', label: 'Smart Simplifier', icon: '' },
+    { id: 'focus', label: 'Focus Mode', icon: '' },
+    { id: 'memory', label: 'Memory Assistant', icon: '' },
+    { id: 'tasks', label: 'Task Breakdown', icon: '' },
+    { id: 'companion', label: 'Reading Companion', icon: '' },
   ];
 
   const renderContent = () => {
