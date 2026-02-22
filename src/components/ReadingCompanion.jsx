@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 
 // Hardcode or use environment variable for Gemini API Key here
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "YOUR_API_KEY_HERE";
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "AIzaSyDdKq8tNRtGjf34PZKvT96CGCfGwbsmKYw";
 
 const callGeminiExplainAPI = async (text) => {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
