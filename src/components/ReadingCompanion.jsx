@@ -1,19 +1,47 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
-const mockAiExplain = async (text) => {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            resolve(`"${text}" typically means... [Simulated AI Explanation]. In this context, it refers to the cognitive load placed on a user.`);
-        }, 1000);
+const callGeminiExplainAPI = async (text, apiKey) => {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const prompt = `Explain the following text simply and clearly in 2-3 sentences max. Assume the reader struggles with cognitive overload and complex terminology. Text: "${text}"`;
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3 } })
     });
+
+    if (!response.ok) throw new Error("API failed");
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Explanation failed.";
 };
 
-const mockAiChat = async (question) => {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            resolve(`That's a great question! Based on this document, the answer is that structured text helps reduce overwhelm. (Simulated AI Response)`);
-        }, 1200);
+const callGeminiChatAPI = async (question, documentText, history, apiKey) => {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+    // Construct context
+    let formattedHistory = history.map(m => `${m.role === 'ai' ? 'Assistant' : 'User'}: ${m.content}`).join('\n');
+    const prompt = `You are a helpful reading companion for someone who needs simple, clear answers. 
+Answer the user's question based strictly on the provided document. Keep your answer brief, warm, and highly readable.
+
+Document:
+"""
+${documentText}
+"""
+
+Conversation History:
+${formattedHistory}
+
+User's new question: ${question}`;
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.4 } })
     });
+
+    if (!response.ok) throw new Error("API failed");
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Answer failed.";
 };
 
 const ReadingCompanion = () => {
@@ -29,45 +57,110 @@ const ReadingCompanion = () => {
 
     const textRef = useRef(null);
 
+    // AI Key Management
+    const [apiKey, setApiKey] = useState("");
+    const [isEditingKey, setIsEditingKey] = useState(false);
+    const [errorExp, setErrorExp] = useState(null);
+
+    useEffect(() => {
+        const storedKey = localStorage.getItem('gemini_api_key');
+        if (storedKey) setApiKey(storedKey);
+        else setIsEditingKey(true);
+    }, []);
+
+    const saveApiKey = () => {
+        if (apiKey.trim()) {
+            localStorage.setItem('gemini_api_key', apiKey.trim());
+            setIsEditingKey(false);
+        }
+    };
+
     const handleTextSelection = async () => {
         const selection = window.getSelection();
         const text = selection.toString().trim();
         if (text && text.length > 3) {
             setSelectedText(text);
+
+            if (!apiKey) {
+                setExplanation("Please enter your Gemini API Key at the top to use this feature.");
+                setIsEditingKey(true);
+                return;
+            }
+
             setLoadingExp(true);
             setExplanation("");
-            const result = await mockAiExplain(text);
-            setExplanation(result);
-            setLoadingExp(false);
+            setErrorExp(null);
+
+            try {
+                const result = await callGeminiExplainAPI(text, apiKey);
+                setExplanation(result);
+            } catch (err) {
+                setExplanation("Error: " + err.message);
+            } finally {
+                setLoadingExp(false);
+            }
         }
     };
 
     const handleSendMessage = async () => {
         if (!chatInput.trim()) return;
+        if (!apiKey) {
+            setMessages(prev => [...prev, { role: 'user', content: chatInput }, { role: 'ai', content: 'Please enter your Gemini API Key at the top to chat!' }]);
+            setIsEditingKey(true);
+            setChatInput("");
+            return;
+        }
+
         const userMsg = chatInput;
         setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
         setChatInput("");
         setLoadingChat(true);
 
-        const response = await mockAiChat(userMsg);
-        setMessages(prev => [...prev, { role: 'ai', content: response }]);
-        setLoadingChat(false);
+        try {
+            const response = await callGeminiChatAPI(userMsg, documentText, messages, apiKey);
+            setMessages(prev => [...prev, { role: 'ai', content: response }]);
+        } catch (err) {
+            setMessages(prev => [...prev, { role: 'ai', content: 'Sorry, I hit an error connecting to the AI: ' + err.message }]);
+        } finally {
+            setLoadingChat(false);
+        }
     };
 
     return (
         <div className="animate-fade-in" style={{ height: 'calc(100vh - 5rem)', display: 'flex', flexDirection: 'column' }}>
-            <header className="mb-6 flex-shrink-0">
-                <h2 className="text-3xl mb-2 text-gradient">AI Reading Companion</h2>
-                <p className="text-muted text-lg">Read documents with a helpful AI by your side to explain complex terms and answer questions.</p>
+            <header className="mb-6 flex-shrink-0 flex justify-between items-center">
+                <div>
+                    <h2 className="text-3xl mb-2 text-gradient">AI Reading Companion</h2>
+                    <p className="text-muted text-lg">Read documents with a helpful AI by your side to explain complex terms.</p>
+                </div>
+
+                <div className="card" style={{ padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.1)' }}>
+                    {isEditingKey ? (
+                        <div className="flex gap-2 items-center">
+                            <input
+                                type="password" placeholder="Enter API Key..."
+                                value={apiKey} onChange={(e) => setApiKey(e.target.value)}
+                                className="input-control"
+                                style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem', width: '220px', background: '#0a0a12', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+                            />
+                            <button className="btn btn-primary" style={{ padding: '0.4rem 0.75rem', fontSize: '0.85rem' }} onClick={saveApiKey}>Save</button>
+                        </div>
+                    ) : (
+                        <div className="flex gap-4 items-center">
+                            <span className="text-sm" style={{ color: '#10B981' }}>✓ API Key Configured</span>
+                            <button className="btn btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', background: 'transparent', color: '#e8e8f0' }} onClick={() => setIsEditingKey(true)}>Change</button>
+                        </div>
+                    )}
+                </div>
             </header>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '2rem', flexGrow: 1, minHeight: 0 }}>
 
                 {/* Left: Document View */}
-                <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'rgba(20,25,40,0.5)', borderColor: 'rgba(255,255,255,0.06)' }}>
                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="font-heading text-xl">Document Reader</h3>
-                        <span className="text-xs text-muted" style={{ background: 'var(--color-bg)', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>Highlight text to explain</span>
+                        <h3 className="font-heading text-xl" style={{ color: '#e8e8f0' }}>Document Reader</h3>
+                        <span className="text-xs text-muted" style={{ background: 'rgba(255,255,255,0.1)', padding: '0.25rem 0.5rem', borderRadius: '4px', color: '#e8e8f0' }}>Highlight text to explain</span>
                     </div>
                     <div
                         ref={textRef}
@@ -78,20 +171,20 @@ const ReadingCompanion = () => {
                             flexGrow: 1,
                             overflowY: 'auto',
                             padding: '1rem',
-                            background: 'var(--color-surface)',
+                            background: 'rgba(0,0,0,0.2)',
                             borderRadius: 'var(--radius-md)',
-                            border: '1px solid var(--color-border)',
+                            border: '1px solid rgba(255,255,255,0.1)',
                             whiteSpace: 'pre-wrap',
                             fontSize: '1.2rem',
-                            lineHeight: 1.8
+                            lineHeight: 1.8,
+                            color: '#e8e8f0'
                         }}
                     >
                         {documentText}
                     </div>
 
                     <div className="mt-4 text-sm text-muted">
-                        <button className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }} onClick={() => setDocumentText("")}>Clear Document</button>
-                        <span className="ml-4">You can paste your own text into the reader box above. Wait, to edit, double-click! (Mock functionality for now).</span>
+                        <button className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.9rem', color: '#e8e8f0', background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)' }} onClick={() => setDocumentText("")}>Clear</button>
                     </div>
                 </div>
 
@@ -99,32 +192,32 @@ const ReadingCompanion = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', overflow: 'hidden' }}>
 
                     {/* Explanation Tooltip Area */}
-                    <div className="glass-panel text-sm" style={{ padding: '1.25rem', borderLeft: '4px solid var(--color-primary)' }}>
-                        <h4 className="mb-2 flex items-center gap-2 text-primary">
+                    <div className="glass-panel text-sm" style={{ padding: '1.25rem', borderLeft: '4px solid #a78bfa', background: 'rgba(20,25,40,0.5)', borderColor: 'rgba(255,255,255,0.06)' }}>
+                        <h4 className="mb-2 flex items-center gap-2" style={{ color: '#c4b5fd' }}>
                             <span>🔍</span> Instant Explanation
                         </h4>
                         {!selectedText && !loadingExp && <p className="text-muted italic">Highlight text in the document...</p>}
 
                         {loadingExp && (
                             <div className="flex items-center gap-2">
-                                <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }}></div>
-                                <span className="text-muted">Explaining...</span>
+                                <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', borderTopColor: '#a78bfa', borderRightColor: 'rgba(167,139,250,0.2)', borderBottomColor: 'rgba(167,139,250,0.2)', borderLeftColor: 'rgba(167,139,250,0.2)' }}></div>
+                                <span className={{ color: '#a78bfa' }}>Explaining...</span>
                             </div>
                         )}
 
                         {explanation && !loadingExp && (
                             <div className="animate-fade-in">
-                                <div className="mb-2" style={{ padding: '0.25rem 0.5rem', background: 'var(--color-bg)', borderRadius: '4px', fontStyle: 'italic', display: 'inline-block' }}>
+                                <div className="mb-2" style={{ padding: '0.25rem 0.5rem', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', fontStyle: 'italic', display: 'inline-block', color: 'rgba(232,232,240,0.6)' }}>
                                     "{selectedText.length > 40 ? selectedText.substring(0, 40) + '...' : selectedText}"
                                 </div>
-                                <p>{explanation}</p>
+                                <p style={{ color: '#e8e8f0', fontSize: '0.95rem' }}>{explanation}</p>
                             </div>
                         )}
                     </div>
 
                     {/* Chat Interface */}
-                    <div className="glass-panel" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', padding: '1.25rem', overflow: 'hidden' }}>
-                        <h4 className="mb-4 flex items-center gap-2">
+                    <div className="glass-panel" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', padding: '1.25rem', overflow: 'hidden', background: 'rgba(20,25,40,0.5)', borderColor: 'rgba(255,255,255,0.06)' }}>
+                        <h4 className="mb-4 flex items-center gap-2" style={{ color: '#e8e8f0' }}>
                             <span>💬</span> Document Q&A
                         </h4>
 
@@ -132,21 +225,22 @@ const ReadingCompanion = () => {
                             {messages.map((msg, i) => (
                                 <div key={i} style={{
                                     alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                                    background: msg.role === 'user' ? 'var(--color-primary)' : 'var(--color-bg)',
-                                    color: msg.role === 'user' ? 'white' : 'var(--color-text-main)',
+                                    background: msg.role === 'user' ? 'linear-gradient(135deg, #a78bfa, #60a5fa)' : 'rgba(255,255,255,0.05)',
+                                    color: msg.role === 'user' ? '#fff' : '#e8e8f0',
                                     padding: '0.75rem 1rem',
                                     borderRadius: 'var(--radius-lg)',
                                     borderBottomRightRadius: msg.role === 'user' ? 0 : 'var(--radius-lg)',
                                     borderBottomLeftRadius: msg.role === 'ai' ? 0 : 'var(--radius-lg)',
                                     maxWidth: '85%',
-                                    fontSize: '0.95rem'
+                                    fontSize: '0.95rem',
+                                    border: msg.role === 'ai' ? '1px solid rgba(255,255,255,0.1)' : 'none'
                                 }}>
                                     {msg.content}
                                 </div>
                             ))}
                             {loadingChat && (
-                                <div style={{ alignSelf: 'flex-start', padding: '0.5rem 1rem', background: 'var(--color-bg)', borderRadius: 'var(--radius-lg)' }}>
-                                    <span className="animate-pulse">Assistant is typing...</span>
+                                <div style={{ alignSelf: 'flex-start', padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 'var(--radius-lg)' }}>
+                                    <span className="animate-pulse" style={{ color: '#e8e8f0' }}>Thinking...</span>
                                 </div>
                             )}
                         </div>
@@ -159,13 +253,13 @@ const ReadingCompanion = () => {
                                 value={chatInput}
                                 onChange={e => setChatInput(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-                                style={{ padding: '0.5rem 1rem' }}
+                                style={{ padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.3)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
                             />
                             <button
                                 className="btn btn-primary"
                                 onClick={handleSendMessage}
                                 disabled={!chatInput.trim() || loadingChat}
-                                style={{ padding: '0.5rem 1rem' }}
+                                style={{ padding: '0.5rem 1rem', opacity: (!chatInput.trim() || loadingChat) ? 0.6 : 1 }}
                             >
                                 Send
                             </button>
