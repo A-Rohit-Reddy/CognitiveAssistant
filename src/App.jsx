@@ -42,68 +42,75 @@ function App() {
   };
 
   return (
-    <div className="app-layout">
-      {/* Navigation Bar */}
-      <nav className={`nav-wrap${scrolled ? ' scrolled' : ''}`}>
-        <div className="nav-pill">
-          <div className="nav-logo" onClick={() => setActiveTab('dashboard')}>
-            Cognify
-          </div>
+    <>
+      <div className="stars-bg">
+        <div className="stars"></div>
+        <div className="stars2"></div>
+        <div className="stars3"></div>
+      </div>
+      <div className="app-layout">
+        {/* Navigation Bar */}
+        <nav className={`nav-wrap${scrolled ? ' scrolled' : ''}`}>
+          <div className="nav-pill">
+            <div className="nav-logo" onClick={() => setActiveTab('dashboard')}>
+              Cognify
+            </div>
 
-          <div className="nav-links-desktop">
+            <div className="nav-links-desktop">
+              {NAV_ITEMS.map((item) => (
+                <button
+                  key={item.id}
+                  className={`nav-link${activeTab === item.id ? ' active' : ''}`}
+                  onClick={() => setActiveTab(item.id)}
+                >
+                  <span className="nav-icon">{item.icon}</span>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              className={`nav-hamburger${menuOpen ? ' open' : ''}`}
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-label="Menu"
+            >
+              <span></span><span></span><span></span>
+            </button>
+          </div>
+        </nav>
+
+        {menuOpen && (
+          <div className="nav-mobile-menu">
             {NAV_ITEMS.map((item) => (
               <button
                 key={item.id}
-                className={`nav-link${activeTab === item.id ? ' active' : ''}`}
-                onClick={() => setActiveTab(item.id)}
+                className={`nav-mobile-link${activeTab === item.id ? ' active' : ''}`}
+                onClick={() => { setActiveTab(item.id); setMenuOpen(false); }}
               >
-                <span className="nav-icon">{item.icon}</span>
+                <span>{item.icon}</span>
                 {item.label}
               </button>
             ))}
           </div>
-
-          <button
-            className={`nav-hamburger${menuOpen ? ' open' : ''}`}
-            onClick={() => setMenuOpen((o) => !o)}
-            aria-label="Menu"
-          >
-            <span></span><span></span><span></span>
-          </button>
-        </div>
-      </nav>
-
-      {menuOpen && (
-        <div className="nav-mobile-menu">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              className={`nav-mobile-link${activeTab === item.id ? ' active' : ''}`}
-              onClick={() => { setActiveTab(item.id); setMenuOpen(false); }}
-            >
-              <span>{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <main className="main-content">
-        {activeTab === 'dashboard' ? (
-          <>
-            <div className="demo-hero">
-              <p className="demo-eyebrow">AI Cognitive Suite</p>
-              <h1 className="demo-title">Think clearer, work smarter.</h1>
-              <p className="demo-sub">
-                Pick a tool from the nav above to reduce mental overload with smart AI-powered assistance.
-              </p>
-            </div>
-          </>
-        ) : (
-          renderContent()
         )}
-      </main>
-    </div>
+
+        <main className="main-content">
+          {activeTab === 'dashboard' ? (
+            <>
+              <div className="demo-hero">
+                <p className="demo-eyebrow">AI Cognitive Suite</p>
+                <h1 className="demo-title">Think clearer, work smarter.</h1>
+                <p className="demo-sub">
+                  Pick a tool from the nav above to reduce mental overload with smart AI-powered assistance.
+                </p>
+              </div>
+            </>
+          ) : (
+            renderContent()
+          )}
+        </main>
+      </div>
+    </>
   );
 }
 
